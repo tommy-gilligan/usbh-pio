@@ -100,7 +100,6 @@ set_y:
     set y, BIT_REPEAT_COUNT
 irq_wait:
     wait 1 irq DECODER_TRIGGER			; wait signal from edge detector
-    jmp PIN pin_high
 pin_low:
     jmp !y flip			; ignore stuff bit, without error check
     jmp !x K1
@@ -135,7 +134,6 @@ set_y:
     set y, BIT_REPEAT_COUNT
 irq_wait:
     wait 1 irq DECODER_TRIGGER    ; wait signal from edge detector
-    jmp PIN pin_high
 pin_low:
     jmp !y flip	side db0	; ignore stuff bit, without error check
     jmp !x K1 side db0
