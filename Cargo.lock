@@ -970,6 +970,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "usb_crc"
+version = "0.1.0"
+
+[[package]]
 name = "usbh"
 version = "0.1.0"
 dependencies = [
@@ -1000,6 +1004,7 @@ dependencies = [
  "pio-proc",
  "rp-pico",
  "usb-device",
+ "usb_crc",
  "usbh 0.1.0",
  "vcell",
 ]

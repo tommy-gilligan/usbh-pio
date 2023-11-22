@@ -1,10 +1,10 @@
 #![no_std]
 use usbh::types::{DeviceAddress, SetupPacket, TransferType};
+
 mod pio_usb;
 mod pio_usb_configuration;
 mod pio_usb_host;
 mod pio_usb_ll;
-mod usb_crc;
 mod usb_definitions;
 
 use rp_pico::hal::gpio::{Function, Pin, PinId, PullType};

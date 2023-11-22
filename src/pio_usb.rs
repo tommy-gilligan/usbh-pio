@@ -255,7 +255,7 @@ fn prepare_tx_data(ep: &mut Endpoint) {
         copy_nonoverlapping(src_ptr, dst_ptr, xact_len);
     }
 
-    let crc16: u16 = crate::usb_crc::calc_usb_crc16(ep.app_buf, xact_len);
+    let crc16: u16 = usb_crc::calc_usb_crc16(ep.app_buf, xact_len);
     ep.buffer[2 + xact_len] = crc16 as u8;
     ep.buffer[2 + xact_len + 1] = (crc16 >> 8) as u8;
 }
