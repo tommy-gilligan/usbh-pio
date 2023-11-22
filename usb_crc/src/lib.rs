@@ -53,6 +53,12 @@ pub fn calc_usb_crc16(data: &[u8], len: usize) -> u16 {
     crc ^ 0xffff
 }
 
+pub fn update_usb_crc16(mut crc: u16, data: u8) -> u16 {
+  crc = (crc >> 8) ^ CRC16_TBL[((crc as u8 ^ data) as u8) as usize];
+  crc
+}
+
+// printf("%x\n", update_usb_crc16(39027, 23)); eb99
 #[cfg(test)]
 mod test {
     #[test]
@@ -64,5 +70,10 @@ mod test {
     #[test]
     fn test_calc_usb_crc16() {
         assert_eq!(super::calc_usb_crc16(&[99, 243, 12], 3), 0xd43a);
+    }
+
+    #[test]
+    fn test_update_usb_crc16() {
+        assert_eq!(super::update_usb_crc16(39027, 23), 0xeb99);
     }
 }
