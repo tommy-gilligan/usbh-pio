@@ -1,61 +1,328 @@
 use core::ffi::c_int;
 
 use rp_pico::hal::{
+    dma::{Channel, CH9},
     gpio::{
         Function, InputOverride, OutputDriveStrength, OutputSlewRate, Pin, PinId, PullDown,
         PullType,
     },
-    pac::PIO0,
-    pio::{StateMachine, Stopped, ValidStateMachine, PIO},
+    pio::{StateMachine, Stopped, UninitStateMachine, ValidStateMachine, PIO, SM3},
 };
 
 use crate::{pio_usb_configuration, pio_usb_ll, usb_definitions};
-use pio::ProgramWithDefines;
+
 use pio_usb_configuration::PioUsbConfiguration;
 
 use usb_definitions::{Endpoint, EndpointDescriptor, RootPort};
 
-pub fn pio_usb_bus_init<T, A, B, C, P, F, DPDM, DMDP>(
-    pp: &mut pio_usb_ll::PioPort<T, A, B, C>,
-    c: &PioUsbConfiguration<A, B, C>,
-    root: &mut RootPort<P, F, DPDM, DMDP>,
+//--------------------------------------------------------------------+
+// Bus functions
+//--------------------------------------------------------------------+
+
+// pub fn send_pre<T, A, B, C>(
+//     pp: &mut pio_usb_ll::PioPort<T, A, B, C>
+// ) where A: ValidStateMachine, B: ValidStateMachine, C: ValidStateMachine {
+//     let data = [
+//         usb_definitions::USB_SYNC,
+//         usb_definitions::USB_PID_PRE,
+//     ];
+//
+//     // send PRE token in full-speed
+//     pp.sm_tx.set_enabled(false);
+//     for i in 0..USB_TX_EOP_DISABLER_LEN {
+//       let instr: u16 = pp.fs_tx_pre_program.instructions[i + USB_TX_EOP_OFFSET];
+//       pp.pio_usb_tx.instr_mem[pp.offset_tx + i + USB_TX_EOP_OFFSET] = instr;
+//     }
+//
+//     SM_SET_CLKDIV(pp.pio_usb_tx, pp.sm_tx, pp.clk_div_fs_tx);
+//
+//     dma_channel_transfer_from_buffer_now(pp.tx_ch, data, 2);
+//
+//     pp.sm_tx.set_enabled(true);
+//     pp.pio_usb_tx.irq |= pio_usb_ll::IRQ_TX_ALL_MASK;       // clear complete flag
+//     pp.pio_usb_tx.irq_force |= pio_usb_ll::IRQ_TX_EOP_MASK; // disable eop
+//
+//     while (pp.pio_usb_tx.get_irq_raw() & pio_usb_ll::IRQ_TX_COMP_MASK) == 0 {
+//       continue;
+//     }
+//
+//     // change bus speed to low-speed
+//     pp.sm_tx.set_enabled(false);
+//     for i in 0..USB_TX_EOP_DISABLER_LEN {
+//       let instr: u16 = pp.fs_tx_program.instructions[i + USB_TX_EOP_OFFSET];
+//       pp.pio_usb_tx.instr_mem[pp.offset_tx + i + USB_TX_EOP_OFFSET] = instr;
+//     }
+//     SM_SET_CLKDIV(pp.pio_usb_tx, pp.sm_tx, pp.clk_div_ls_tx);
+//
+//     pp.sm_rx.set_enabled(false);
+//     SM_SET_CLKDIV_MAXSPEED(pp.pio_usb_rx, pp.sm_rx);
+//
+//     pp.sm_eop.set_enabled(false);
+//     SM_SET_CLKDIV(pp.pio_usb_rx, pp.sm_eop, pp.clk_div_ls_rx);
+//     pp.sm_eop.set_enabled(true);
+// }
+//
+// pub fn pio_usb_bus_usb_transfer<T, A, B, C>(
+//     pp: &pio_usb_ll::PioPort<T, A, B, C>,
+//     data: &[u8],
+//     len: usize,
+// ) where A: ValidStateMachine, B: ValidStateMachine, C: ValidStateMachine {
+//   if pp.need_pre {
+//     send_pre(pp);
+//   }
+//
+//   dma_channel_transfer_from_buffer_now(pp.tx_ch, data, len);
+//
+//   pio_sm_set_enabled(pp.pio_usb_tx, pp.sm_tx, true);
+//   pp.pio_usb_tx.clear_irq(pp.pio_usb_tx.get_irq_raw() | pio_usb_ll::IRQ_TX_ALL_MASK); // clear complete flag
+//
+//   while (pp.pio_usb_tx.get_irq_raw() & pio_usb_ll::IRQ_TX_ALL_MASK) == 0 {
+//     continue;
+//   }
+// }
+//
+// pub fn pio_usb_bus_send_handshake<T, A, B, C>(
+//     pp: &pio_usb_ll::PioPort<T, A, B, C>,
+//     pid: u8
+// ) where A: ValidStateMachine, B: ValidStateMachine, C: ValidStateMachine {
+//   let data = [
+//       usb_definitions::USB_SYNC,
+//       pid,
+//   ];
+//   pio_usb_bus_usb_transfer(pp, &data, data.len());
+// }
+//
+// fn pio_usb_bus_send_token<T, A, B, C>(
+//     pp: &pio_usb_ll::PioPort<T, A, B, C>,
+//     token: u8,
+//     addr: u8,
+//     ep_num: u8
+// ) where A: ValidStateMachine, B: ValidStateMachine, C: ValidStateMachine {
+//   let packet: [u8; 4] = [usb_definitions::USB_SYNC, token, 0, 0];
+//   let dat: u16 = ((ep_num & 0xf) << 7) as u16 | (addr & 0x7f) as u16;
+//   let crc: u8 = usb_crc::calc_usb_crc5(dat);
+//   packet[2] = dat as u8;
+//   packet[3] = (crc << 3) | ((dat >> 8) as u8 & 0x1f);
+//
+//   pio_usb_bus_usb_transfer(pp, &packet, packet.len());
+// }
+//
+// fn pio_usb_bus_prepare_receive<T, A, B, C>(
+//     pp: &pio_usb_ll::PioPort<T, A, B, C>,
+//     mut sm_rx: StateMachine<A, rp_pico::hal::pio::Running>
+// ) where A: ValidStateMachine, B: ValidStateMachine, C: ValidStateMachine {
+// //   pio_sm_set_enabled(pp.pio_usb_rx, pp.sm_rx, false);
+// //    sm_rx.clear_fifos();
+//     sm_rx.restart();
+//     sm_rx.set_instruction(pp.rx_reset_instr);
+//     sm_rx.set_instruction(pp.rx_reset_instr2);
+// }
+//
+// fn pio_usb_bus_start_receive<T, A, B, C>(
+//     pp: &pio_usb_ll::PioPort<T, A, B, C>
+// ) where A: ValidStateMachine, B: ValidStateMachine, C: ValidStateMachine {
+//   pp.pio_usb_rx.ctrl |= (1 << pp.sm_rx);
+//   pp.pio_usb_rx.force_irq(pio_usb_ll::IRQ_RX_ALL_MASK);
+// }
+//
+// fn pio_usb_bus_wait_handshake<T, A, B, C>(
+//     pp: &pio_usb_ll::PioPort<T, A, B, C>
+// ) -> u8 where A: ValidStateMachine, B: ValidStateMachine, C: ValidStateMachine {
+//   let t: i16 = 240;
+//   let idx: usize = 0;
+//
+//   while t -= 1 {
+//     if pio_sm_get_rx_fifo_level(pp.pio_usb_rx, pp.sm_rx) {
+//       let data: u8 = pio_sm_get(pp.pio_usb_rx, pp.sm_rx) >> 24;
+//       pp.usb_rx_buffer[idx] = data;
+//       idx += 1;
+//       if idx == 2 {
+//         break;
+//       }
+//     }
+//   }
+//
+//   if t > 0 {
+//     while (pp.pio_usb_rx.get_irq_raw() & pio_usb_ll::IRQ_RX_COMP_MASK) == 0 {
+//       continue;
+//     }
+//   }
+//
+//   pio_sm_set_enabled(pp.pio_usb_rx, pp.sm_rx, false);
+//
+//   return pp.usb_rx_buffer[1];
+// }
+//
+// fn pio_usb_bus_receive_packet_and_handshake<T, A, B, C>(
+//     pp: &mut pio_usb_ll::PioPort<T, A, B, C>,
+//     handshake: u8,
+// ) -> isize where A: ValidStateMachine, B: ValidStateMachine, C: ValidStateMachine {
+//   let crc: u16 = 0xffff;
+//   let crc_prev: u16 = 0xffff;
+//   let crc_prev2: u16 = 0xffff;
+//   let crc_receive: u16 = 0xffff;
+//
+//   let mut crc_receive_inverse: u16 = 0;
+//   let crc_match: bool = false;
+//   let t: i16 = 240;
+//   let idx: usize = 0;
+//
+//   while t > 0 {
+//       t -= 1;
+//       if pio_sm_get_rx_fifo_level(pp.pio_usb_rx, pp.sm_rx) {
+//           let data: u8 = pio_sm_get(pp.pio_usb_rx, pp.sm_rx) >> 24;
+//           pp.usb_rx_buffer[idx] = data;
+//           idx += 1;
+//           if idx == 2 {
+//             break;
+//           }
+//       }
+//   }
+//
+//   // timing critical start
+//   if t > 0 {
+//     if handshake == usb_definitions::USB_PID_ACK {
+//       while (pp.pio_usb_rx.get_irq_raw() & pio_usb_ll::IRQ_RX_COMP_MASK) == 0 {
+//         if pio_sm_get_rx_fifo_level(pp.pio_usb_rx, pp.sm_rx) {
+//           let data: u8 = pio_sm_get(pp.pio_usb_rx, pp.sm_rx) >> 24;
+//           crc_prev2 = crc_prev;
+//           crc_prev = crc;
+//           crc = usb_crc::update_usb_crc16(crc, data);
+//           pp.usb_rx_buffer[idx] = data;
+//           idx += 1;
+//           crc_receive = (crc_receive >> 8) | (data << 8);
+//           crc_receive_inverse = crc_receive ^ 0xffff;
+//           crc_match = crc_receive_inverse == crc_prev2;
+//         }
+//       }
+//
+//       if idx >= 4 && crc_match {
+//         pio_usb_bus_send_handshake(pp, usb_definitions::USB_PID_ACK);
+//         // timing critical end
+//         return (idx - 4) as isize;
+//       }
+//     } else {
+//       // just discard received data since we NAK/STALL anyway
+//       while (pp.pio_usb_rx.get_irq_raw() & pio_usb_ll::IRQ_RX_COMP_MASK) == 0 {
+//         continue;
+//       }
+//       pio_sm_clear_fifos(pp.pio_usb_rx, pp.sm_rx);
+//
+//       pio_usb_bus_send_handshake(pp, handshake);
+//     }
+//   }
+//
+//   return -1;
+// }
+
+fn initialize_host_programs<P, F, DP, DM, PIO_RX, PIO_TX>(
+    pp: &mut pio_usb_ll::PioPort<PIO_RX, PIO_TX>,
+    _port: &RootPort<P, F, DP, DM>,
 ) where
-    A: ValidStateMachine,
-    B: ValidStateMachine,
-    C: ValidStateMachine,
     P: PullType,
-    DPDM: PinId,
-    DMDP: PinId,
+    DP: PinId,
+    DM: PinId,
     F: Function,
+    PIO_RX: rp_pico::hal::pio::PIOExt,
+    PIO_TX: rp_pico::hal::pio::PIOExt,
 {
-    // memset(root, 0, sizeof(root_port_t));
+    let fs_tx_program = pio_proc::pio_file!(
+        "src/usb_tx.pio",
+        select_program("usb_tx_dpdm"),
+        options(max_program_size = 32)
+    );
+    let _USB_TX_EOP_DISABLER_LEN = fs_tx_program.public_defines.USB_TX_EOP_DISABLER_LEN;
+    let _USB_TX_EOP_OFFSET = fs_tx_program.public_defines.USB_TX_EOP_OFFSET;
 
-    // pp.pio_usb_tx = if c.pio_tx_num == 0 {
-    //     pio0
-    // } else {
-    //     pio1
-    // };
-    // dma_claim_mask(1<<c->tx_ch);
-    // configure_tx_channel(c.tx_ch, pp.pio_usb_tx, c.sm_tx);
+    let _fs_tx_pre_program = pio_proc::pio_file!(
+        "src/usb_tx.pio",
+        select_program("usb_tx_pre_dpdm"),
+        options(max_program_size = 32)
+    );
+    let _ls_tx_program = pio_proc::pio_file!(
+        "src/usb_tx.pio",
+        select_program("usb_tx_dmdp"),
+        options(max_program_size = 32)
+    );
 
-    // apply_config(pp, c, root);
-    initialize_host_programs(pp, c, root);
-    port_pin_drive_setting(root);
-    root.initialized.set(true);
-    root.dev_addr = 0;
+    let usb_nrzi_decoder_program = pio_proc::pio_file!(
+        "src/usb_rx.pio",
+        select_program("usb_nrzi_decoder"),
+        options(max_program_size = 32)
+    );
+
+    let usb_edge_detector_program = pio_proc::pio_file!(
+        "src/usb_rx.pio",
+        select_program("usb_edge_detector"),
+        options(max_program_size = 32)
+    );
+
+    pp.offset_tx = Some(pp.pio_tx.install(&fs_tx_program.program).unwrap());
+
+    pp.offset_rx = Some(
+        pp.pio_rx
+            .install(&usb_nrzi_decoder_program.program)
+            .unwrap(),
+    );
+
+    pp.rx_reset_instr = Some(
+        (pio::InstructionOperands::JMP {
+            condition: pio::JmpCondition::Always,
+            address: pp.offset_rx.as_ref().unwrap().offset(),
+        })
+        .encode(),
+    );
+
+    pp.offset_eop = Some(
+        pp.pio_rx
+            .install(&usb_edge_detector_program.program)
+            .unwrap(),
+    );
 }
+//
 
-fn add_pio_host_rx_program<T, U>(
-    pio: &mut PIO<PIO0>,
-    program: &ProgramWithDefines<T, 32>,
-    debug_program: &ProgramWithDefines<U, 32>,
-    debug_pin: c_int,
-) {
-    if debug_pin < 0 {
-        pio.install(&program.program).unwrap();
-    } else {
-        pio.install(&debug_program.program).unwrap();
-    }
+pub fn configure_tx_channel<P>(
+    _ch: &mut Channel<CH9>,
+    _pio: &mut PIO<P>,
+    _sm: &mut UninitStateMachine<(P, SM3)>,
+) where
+    P: rp_pico::hal::pio::PIOExt,
+{
+    //    let tx_transfer = rp_pico::hal::dma::single_buffer::Config::new(ch, tx_buf, tx).start();
+
+    //     dma_channel_config conf = dma_channel_get_default_config(ch);
+    //
+    //     channel_config_set_read_increment(&conf, true);
+    //     channel_config_set_write_increment(&conf, false);
+    //     channel_config_set_transfer_data_size(&conf, DMA_SIZE_8);
+    //     channel_config_set_dreq(&conf, pio_get_dreq(pio, sm, true));
+    //
+    //     dma_channel_set_config(ch, &conf, false);
+    //     dma_channel_set_write_addr(ch, &pio->txf[sm], false);
+    //    #[allow(clippy::unusual_byte_groupings)]
+    //    let message = [
+    //        0b10101010_00100010_11101010_00101110,
+    //        0b10100011_10111011_10000000_10111011,
+    //        0b10001110_11101110_00101110_10001011,
+    //        0b10101000_11101010_00000000_00000000,
+    //        0b10101010_00100010_11101010_00101110,
+    //        0b10100011_10111011_10000000_10111011,
+    //        0b10001110_11101110_00101110_10001011,
+    //        0b10101000_11101010_00000000_00000000,
+    //    ];
+    //
+    //    let tx_buf = singleton!(: [u32; 8] = message).unwrap();
+    //
+    //  let tx_transfer = rp_pico::hal::dma::single_buffer::Config::new(ch0, tx_buf, tx).start();
+    //
+    //  let (ch0, tx_buf, tx) = tx_transfer.wait();
+    //  for i in 0..rx_buf.len() {
+    //      if rx_buf[i] != tx_buf[i] {
+    //          // The data did not match, abort.
+    //          #[allow(clippy::empty_loop)]
+    //          loop {}
+    //      }
+    //  }
 }
 
 fn port_pin_drive_setting<P, F, DPDM, DMDP>(port: &mut RootPort<P, F, DPDM, DMDP>)
@@ -73,156 +340,138 @@ where
         .set_drive_strength(OutputDriveStrength::TwelveMilliAmps);
 }
 
-fn initialize_host_programs<T, A, B, C, P, F, DPDM, DMDP>(
-    pp: &mut pio_usb_ll::PioPort<T, A, B, C>,
-    c: &PioUsbConfiguration<A, B, C>,
-    _port: &RootPort<P, F, DPDM, DMDP>,
-) where
-    A: ValidStateMachine,
-    B: ValidStateMachine,
-    C: ValidStateMachine,
+use pio_usb_ll::PioPort;
+// return root and port but for now just root
+pub fn apply_config<P, F, DP, DM, PIO_RX, PIO_TX>(
+    c: PioUsbConfiguration<P, DP, DM, F, PIO_RX, PIO_TX>,
+) -> (RootPort<P, F, DP, DM>, PioPort<PIO_RX, PIO_TX>)
+where
     P: PullType,
-    DPDM: PinId,
-    DMDP: PinId,
+    DP: PinId,
+    DM: PinId,
     F: Function,
+    PIO_RX: rp_pico::hal::pio::PIOExt,
+    PIO_TX: rp_pico::hal::pio::PIOExt,
 {
-    let usb_tx_dpdm = pio_proc::pio_file!(
-        "src/usb_tx.pio",
-        select_program("usb_tx_dpdm"),
-        options(max_program_size = 32)
-    );
-    pp.offset_tx = pp.pio_usb_tx.install(&usb_tx_dpdm.program).unwrap();
+    let root = RootPort {
+        initialized: vcell::VolatileCell::new(false),
+        addr0_exists: vcell::VolatileCell::new(false),
+        is_fullspeed: vcell::VolatileCell::new(false),
+        connected: vcell::VolatileCell::new(false),
+        suspended: vcell::VolatileCell::new(false),
+        mode: pio_usb_ll::PIO_USB_MODE_HOST,
+        pin_dp: c.pin_dp,
+        pin_dm: c.pin_dm,
+        dev_addr: 0,
+        ep_complete: vcell::VolatileCell::new(0),
+        ep_error: vcell::VolatileCell::new(0),
+        ep_stalled: vcell::VolatileCell::new(0),
+        ints: vcell::VolatileCell::new(0),
+    };
 
-    // usb_tx_fs_program_init(
-    //     pp->pio_usb_tx,
-    //     pp->sm_tx,
-    //     pp->offset_tx,
-    //     port->pin_dp,
-    //     port->pin_dm
-    // );
+    let pp = PioPort {
+        sm_tx: c.sm_tx,
+        sm_rx: c.sm_rx,
+        sm_eop: c.sm_eop,
+        pio_tx: c.pio_tx,
+        tx_ch: c.tx_ch,
+        pio_rx: c.pio_rx,
+        rx_reset_instr2: (pio::InstructionOperands::SET {
+            destination: pio::SetDestination::X,
+            data: 0,
+        })
+        .encode(),
+        rx_reset_instr: None,
+        offset_tx: None,
+        offset_rx: None,
+        offset_eop: None,
+    };
 
-    add_pio_host_rx_program(
-        &mut pp.pio_usb_rx,
-        &pio_proc::pio_file!(
-            "src/usb_rx.pio",
-            select_program("usb_nrzi_decoder"),
-            options(max_program_size = 32)
-        ),
-        &pio_proc::pio_file!(
-            "src/usb_rx.pio",
-            select_program("usb_nrzi_decoder_debug"),
-            options(max_program_size = 32)
-        ),
-        c.debug_pin_rx,
-    );
-    // usb_rx_fs_program_init(pp->pio_usb_rx, pp->sm_rx, pp->offset_rx, port->pin_dp, port->pin_dm, c->debug_pin_rx);
-
-    pp.rx_reset_instr = (pio::InstructionOperands::JMP {
-        condition: pio::JmpCondition::Always,
-        address: pp.offset_rx,
-    })
-    .encode();
-    pp.rx_reset_instr2 = (pio::InstructionOperands::SET {
-        destination: pio::SetDestination::X,
-        data: 0,
-    })
-    .encode();
-
-    // add_pio_host_rx_program(pp->pio_usb_rx, &usb_edge_detector_program, &usb_edge_detector_debug_program, &pp->offset_eop, c->debug_pin_eop);
-    // eop_detect_fs_program_init(pp->pio_usb_rx, c->sm_eop, pp->offset_eop, port->pin_dp, port->pin_dm, true, c->debug_pin_eop);
-
-    // usb_tx_configure_pins(pp->pio_usb_tx, pp->sm_tx, port->pin_dp, port->pin_dm);
-
-    // pio_sm_set_jmp_pin(pp->pio_usb_rx, pp->sm_rx, port->pin_dp);
-    // pio_sm_set_jmp_pin(pp->pio_usb_rx, pp->sm_eop, port->pin_dm);
-    // pio_sm_set_in_pins(pp->pio_usb_rx, pp->sm_eop, port->pin_dp);
+    (root, pp)
 }
 
-// pub fn configure_tx_channel<T>(ch0: Channel<CH0>, pio: PIO<PIO0>, sm: T) where T: ValidStateMachine {
-//     #[allow(clippy::unusual_byte_groupings)]
-//     let message = [
-//         0b10101010_00100010_11101010_00101110,
-//         0b10100011_10111011_10000000_10111011,
-//         0b10001110_11101110_00101110_10001011,
-//         0b10101000_11101010_00000000_00000000,
-//         0b10101010_00100010_11101010_00101110,
-//         0b10100011_10111011_10000000_10111011,
-//         0b10001110_11101110_00101110_10001011,
-//         0b10101000_11101010_00000000_00000000,
-//     ];
+pub fn pio_usb_bus_init<P, F, DP, DM, PIO_RX, PIO_TX>(
+    c: PioUsbConfiguration<P, DP, DM, F, PIO_RX, PIO_TX>,
+) where
+    P: PullType,
+    DP: PinId,
+    DM: PinId,
+    F: Function,
+    PIO_RX: rp_pico::hal::pio::PIOExt,
+    PIO_TX: rp_pico::hal::pio::PIOExt,
+{
+    let (mut root, mut pp) = apply_config(c);
+
+    initialize_host_programs(&mut pp, &root);
+    port_pin_drive_setting(&mut root);
+
+    root.initialized.set(true);
+    root.dev_addr = 0;
+}
+
+//--------------------------------------------------------------------+
+// Application API
+//--------------------------------------------------------------------+
+
+// fn pio_usb_get_endpoint(
+//     device: &crate::usb_definitions::UsbDevice,
+//     idx: usize
+// ) -> Option<&'static Endpoint> {
+//   let ep_id: u8 = device.endpoint_id[idx];
 //
-//     let tx_buf = singleton!(: [u32; 8] = message).unwrap();
+//   // if ep_id >= 1 {
+//   //   Some(&pio_usb_ep_pool[ep_id - 1])
+//   // } else {
+//     None
+//   // }
+// }
 //
-//   let tx_transfer = rp_pico::hal::dma::single_buffer::Config::new(ch0, tx_buf, tx).start();
-//
-//   let (ch0, tx_buf, tx) = tx_transfer.wait();
-//   for i in 0..rx_buf.len() {
-//       if rx_buf[i] != tx_buf[i] {
-//           // The data did not match, abort.
-//           #[allow(clippy::empty_loop)]
-//           loop {}
-//       }
+// fn pio_usb_get_in_data(
+//     ep: &mut Endpoint,
+//     buffer: &[u8],
+//     len: usize
+// ) -> isize {
+//   if ep.has_transfer.get() || ep.is_tx {
+//     return -1;
 //   }
 //
-//   let conf = rp_pico::hal::dma::single_buffer::Config::new(ch0, tx_buf, tx).start();
+//   if ep.new_data_flag.get() {
+//     len = if len < ep.actual_len {
+//         len
+//     } else {
+//         ep.actual_len
+//     };
 //
-//   baked into api types/names
-//   channel_config_set_read_increment(&conf, true);
-//   channel_config_set_write_increment(&conf, false);
-//   channel_config_set_transfer_data_size(&conf, DMA_SIZE_8);
-//   channel_config_set_dreq(&conf, pio_get_dreq(pio, sm, true));
+//     unsafe {
+//         let dst_ptr = buffer.as_mut_ptr();
+//         let src_ptr = ep.buffer.as_ptr();
 //
-//   dma_channel_set_config(ch, &conf, false);
-//   dma_channel_set_write_addr(ch, &pio->txf[sm], false);
-
+//         copy_nonoverlapping(src_ptr, dst_ptr, len);
+//     }
+//
+//     ep.new_data_flag.set(false);
+//
+//     return if pio_usb_ll_transfer_start(ep, &ep.buffer, ep.size.get()) {
+//         len as isize
+//     } else {
+//         -1
+//     };
+//   }
+//
+//   return -1;
 // }
 
-fn apply_config<T, A, B, C>(
-    pp: &mut pio_usb_ll::PioPort<T, A, B, C>,
-    c: &pio_usb_configuration::PioUsbConfiguration<A, B, C>,
-) where
-    A: ValidStateMachine,
-    B: ValidStateMachine,
-    C: ValidStateMachine,
-{
-    // pp.pio_usb_tx = if c.pio_tx_num == 0 {
-    //     rp_pico::hal::pac::PIO0
-    // } else {
-    //     rp_pico::hal::pac::PIO1
-    // };
-    // pp.sm_tx = c.sm_tx;
-    pp.tx_ch = c.tx_ch;
-    // pp.pio_usb_rx = if c.pio_rx_num == 0 {
-    //     rp_pico::hal::pac::PIO0
-    // } else {
-    //     rp_pico::hal::pac::PIO1
-    // };
-    // pp.sm_rx = c.sm_rx;
-    // pp.sm_eop = c.sm_eop;
-
-    // pp.fs_tx_program = &pio_proc::pio_file!(
-    //     "src/usb_tx.pio",
-    //     select_program("usb_tx_dpdm"),
-    //     options(max_program_size = 32)
-    // );
-
-    // if c.pinout == PIO_USB_PINOUT_DPDM {
-    //     pp.fs_tx_program = &pio_proc::pio_file!("src/usb_tx.pio", select_program("usb_tx_dpdm"), options(max_program_size = 32)),
-    //     pp.fs_tx_pre_program = &usb_tx_pre_dpdm_program;
-    //     pp.ls_tx_program = &usb_tx_dmdp_program;
-    // } else {
-    //     pp.fs_tx_program = &usb_tx_dmdp_program;
-    //     pp.fs_tx_pre_program = &usb_tx_pre_dmdp_program;
-    //     pp.ls_tx_program = &usb_tx_dpdm_program;
-    // }
-
-    pp.debug_pin_rx = c.debug_pin_rx;
-    pp.debug_pin_eop = c.debug_pin_eop;
-
-    // pio_sm_claim(pp.pio_usb_tx, pp.sm_tx);
-    // pio_sm_claim(pp.pio_usb_rx, pp.sm_rx);
-    // pio_sm_claim(pp.pio_usb_rx, pp.sm_eop);
-}
+// fn pio_usb_set_out_data(
+//     ep: &mut Endpoint,
+//     buffer: &[u8],
+//     len: usize
+// ) -> bool {
+//   if !(ep.has_transfer.get() || !ep.is_tx) && pio_usb_ll_transfer_start(ep, buffer, len) {
+//       true
+//   } else {
+//       false
+//   }
+// }
 
 //--------------------------------------------------------------------+
 // Low Level Function

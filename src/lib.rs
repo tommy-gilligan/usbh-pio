@@ -7,72 +7,18 @@ mod pio_usb_host;
 mod pio_usb_ll;
 mod usb_definitions;
 
-use rp_pico::hal::gpio::{Function, Pin, PinId, PullType};
+pub use pio_usb_configuration::PioUsbConfiguration;
 
-pub struct UsbhPio<P, F, DPDM, DMDP>
-where
-    P: PullType,
-    DPDM: PinId,
-    DMDP: PinId,
-    F: Function,
-{
-    root: usb_definitions::RootPort<P, F, DPDM, DMDP>,
-}
-
-impl<P, F, DPDM, DMDP> UsbhPio<P, F, DPDM, DMDP>
-where
-    P: PullType,
-    DPDM: PinId,
-    DMDP: PinId,
-    F: Function,
-{
-    pub fn new(
-        dpdm: Pin<DPDM, F, P>,
-        dmdp: Pin<DMDP, F, P>,
-        _pio0: rp_pico::hal::pio::PIO<rp_pico::hal::pac::PIO0>,
-        _pio0sm0: rp_pico::hal::pio::UninitStateMachine<(
-            rp_pico::hal::pac::PIO0,
-            rp_pico::hal::pio::SM0,
-        )>,
-        _ch0: rp_pico::hal::dma::Channel<rp_pico::hal::dma::CH0>,
-        _ch1: rp_pico::hal::dma::Channel<rp_pico::hal::dma::CH1>,
-    ) -> Self {
-        Self {
-            root: usb_definitions::RootPort {
-                initialized: vcell::VolatileCell::new(false),
-                addr0_exists: vcell::VolatileCell::new(false),
-                is_fullspeed: vcell::VolatileCell::new(false),
-                connected: vcell::VolatileCell::new(false),
-                suspended: vcell::VolatileCell::new(false),
-                mode: pio_usb_ll::PIO_USB_MODE_HOST,
-                pin_dp: dpdm,
-                pin_dm: dmdp,
-                dev_addr: 0,
-                ep_complete: vcell::VolatileCell::new(0),
-                ep_error: vcell::VolatileCell::new(0),
-                ep_stalled: vcell::VolatileCell::new(0),
-                ints: vcell::VolatileCell::new(0),
-            },
-        }
-    }
-}
-
-impl<P, F, DPDM, DMDP> usbh::bus::HostBus for UsbhPio<P, F, DPDM, DMDP>
-where
-    P: PullType,
-    DPDM: PinId,
-    DMDP: PinId,
-    F: Function,
-{
+pub struct UsbhPio;
+impl usbh::bus::HostBus for UsbhPio {
     fn reset_controller(&mut self) {
-        // first
-        todo!()
+        defmt::println!("reset_controller");
     }
     fn reset_bus(&mut self) {
-        todo!()
+        defmt::println!("reset_bus");
     }
     fn enable_sof(&mut self) {
-        todo!()
+        defmt::println!("enable_sof");
     }
     fn sof_enabled(&self) -> bool {
         todo!()

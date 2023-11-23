@@ -54,8 +54,8 @@ pub fn calc_usb_crc16(data: &[u8], len: usize) -> u16 {
 }
 
 pub fn update_usb_crc16(mut crc: u16, data: u8) -> u16 {
-  crc = (crc >> 8) ^ CRC16_TBL[((crc as u8 ^ data) as u8) as usize];
-  crc
+    crc = (crc >> 8) ^ CRC16_TBL[((crc as u8 ^ data) as u8) as usize];
+    crc
 }
 
 // printf("%x\n", update_usb_crc16(39027, 23)); eb99

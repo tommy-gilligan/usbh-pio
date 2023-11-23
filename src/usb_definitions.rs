@@ -99,3 +99,15 @@ pub const USB_PID_NAK: u8 = 0x5a;
 pub const USB_PID_STALL: u8 = 0x1e;
 pub const USB_PID_PRE: u8 = 0x3c;
 pub const USB_CRC16_PLACE: u8 = 0;
+
+pub struct UsbDevice {
+    pub connected: VolatileCell<bool>,
+    pub enumerated: VolatileCell<bool>,
+    pub address: VolatileCell<u8>,
+    pub vid: VolatileCell<u16>,
+    pub pid: VolatileCell<u16>,
+    pub device_class: VolatileCell<u8>,
+    pub is_fullspeed: VolatileCell<bool>,
+    pub is_root: VolatileCell<bool>,
+    pub endpoint_id: [u8; crate::pio_usb_configuration::PIO_USB_DEV_EP_CNT],
+}

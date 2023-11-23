@@ -1,51 +1,33 @@
-use core::ffi::{c_int, c_uint};
-use pio::ProgramWithDefines;
-
 struct PioClkDiv {
     div_int: u16,
     div_frac: u8,
 }
 
 use rp_pico::hal::{
-    pac::PIO0,
-    pio::{InstalledProgram, UninitStateMachine, ValidStateMachine, PIO},
+    dma::{Channel, CH9},
+    pio::{InstalledProgram, UninitStateMachine, PIO, SM2, SM3},
 };
 
-pub struct PioPort<'a, T, A, B, C>
+// use rp_pico::hal::{
+//     pio::{},
+// };
+
+pub struct PioPort<PIO_RX, PIO_TX>
 where
-    A: ValidStateMachine,
-    B: ValidStateMachine,
-    C: ValidStateMachine,
+    PIO_RX: rp_pico::hal::pio::PIOExt,
+    PIO_TX: rp_pico::hal::pio::PIOExt,
 {
-    pub sm_tx: UninitStateMachine<A>,
-    pub sm_rx: UninitStateMachine<B>,
-    pub sm_eop: UninitStateMachine<C>,
-
-    pub pio_usb_tx: PIO<PIO0>,
-    pub offset_tx: InstalledProgram<PIO0>,
-    pub tx_ch: c_uint,
-
-    pub pio_usb_rx: PIO<PIO0>,
-    pub offset_rx: u8,
-    pub offset_eop: c_uint,
-    pub rx_reset_instr: u16,
+    pub sm_eop: UninitStateMachine<(PIO_RX, SM3)>,
+    pub sm_tx: UninitStateMachine<(PIO_TX, SM3)>,
+    pub sm_rx: UninitStateMachine<(PIO_RX, SM2)>,
+    pub tx_ch: Channel<CH9>,
+    pub pio_rx: PIO<PIO_RX>,
+    pub pio_tx: PIO<PIO_TX>,
     pub rx_reset_instr2: u16,
-    pub device_rx_irq_num: c_uint,
-
-    pub debug_pin_rx: c_int,
-    pub debug_pin_eop: c_int,
-
-    pub fs_tx_program: &'a ProgramWithDefines<T, 32>,
-    //const pio_program_t *;
-    //const pio_program_t *fs_tx_pre_program;
-    //const pio_program_t *ls_tx_program;
-    pub clk_div_fs_tx: PioClkDiv,
-    pub clk_div_fs_rx: PioClkDiv,
-    pub clk_div_ls_tx: PioClkDiv,
-    pub clk_div_ls_rx: PioClkDiv,
-
-    pub need_pre: bool,
-    pub usb_rx_buffer: [u8; 128],
+    pub rx_reset_instr: Option<u16>,
+    pub offset_tx: Option<InstalledProgram<PIO_TX>>,
+    pub offset_rx: Option<InstalledProgram<PIO_RX>>,
+    pub offset_eop: Option<InstalledProgram<PIO_RX>>,
 }
 
 pub const PIO_USB_MODE_HOST: u8 = 2;
@@ -77,3 +59,18 @@ pub const PIO_USB_INTS_SOF_BITS: u32 = 1 << PIO_USB_INTS_SOF_POS;
 pub const PIO_USB_INTS_ENDPOINT_COMPLETE_BITS: u32 = 1 << PIO_USB_INTS_ENDPOINT_COMPLETE_POS;
 pub const PIO_USB_INTS_ENDPOINT_ERROR_BITS: u32 = 1 << PIO_USB_INTS_ENDPOINT_ERROR_POS;
 pub const PIO_USB_INTS_ENDPOINT_STALLED_BITS: u32 = 1 << PIO_USB_INTS_ENDPOINT_STALLED_POS;
+
+pub const usb_tx_dpdm_IRQ_COMP: u32 = 0;
+pub const usb_tx_dpdm_IRQ_EOP: u32 = 1;
+
+pub const IRQ_RX_BS_ERR: u8 = 1;
+pub const IRQ_RX_EOP: u8 = 2;
+pub const IRQ_RX_START: u8 = 3;
+pub const DECODER_TRIGGER: u8 = 4;
+
+pub const IRQ_TX_EOP_MASK: u8 = 1 << usb_tx_dpdm_IRQ_EOP;
+pub const IRQ_TX_COMP_MASK: u8 = 1 << usb_tx_dpdm_IRQ_COMP;
+pub const IRQ_TX_ALL_MASK: u8 = IRQ_TX_EOP_MASK | IRQ_TX_COMP_MASK;
+pub const IRQ_RX_COMP_MASK: u8 = 1 << IRQ_RX_EOP;
+pub const IRQ_RX_ALL_MASK: u8 =
+    (1 << IRQ_RX_EOP) | (1 << IRQ_RX_BS_ERR) | (1 << IRQ_RX_START) | (1 << DECODER_TRIGGER);

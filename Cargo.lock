@@ -999,6 +999,7 @@ name = "usbh-pio"
 version = "0.1.0"
 dependencies = [
  "cortex-m",
+ "defmt",
  "embedded-hal",
  "pio",
  "pio-proc",

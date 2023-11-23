@@ -1,27 +1,23 @@
 use crate::pio_usb_configuration::PioUsbConfiguration;
 use crate::usb_definitions::RootPort;
 
-use rp_pico::hal::{
-    gpio::{Function, PinId, PullType},
-    pio::ValidStateMachine,
-};
+use rp_pico::hal::gpio::{Function, PinId, PullType};
 
-use crate::{pio_usb::pio_usb_bus_init, pio_usb_ll};
+use crate::pio_usb_ll;
 
-pub fn pio_usb_host_init<T, A, B, C, P, F, DPDM, DMDP>(
-    pp: &mut pio_usb_ll::PioPort<T, A, B, C>,
-    c: &PioUsbConfiguration<A, B, C>,
-    root: &mut RootPort<P, F, DPDM, DMDP>,
+pub fn pio_usb_host_init<P, F, DP, DM, PIO_RX, PIO_TX>(
+    _pp: &mut pio_usb_ll::PioPort<PIO_RX, PIO_TX>,
+    _c: &PioUsbConfiguration<P, DP, DM, F, PIO_RX, PIO_TX>,
+    root: &mut RootPort<P, F, DP, DM>,
 ) where
-    A: ValidStateMachine,
-    B: ValidStateMachine,
-    C: ValidStateMachine,
     P: PullType,
-    DPDM: PinId,
-    DMDP: PinId,
+    DP: PinId,
+    DM: PinId,
     F: Function,
+    PIO_RX: rp_pico::hal::pio::PIOExt,
+    PIO_TX: rp_pico::hal::pio::PIOExt,
 {
-    pio_usb_bus_init(pp, c, root);
+    // pio_usb_bus_init(pp, c, root);
     root.mode = pio_usb_ll::PIO_USB_MODE_HOST;
 
     // float const cpu_freq = (float)clock_get_hz(clk_sys);

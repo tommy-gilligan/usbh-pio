@@ -1,22 +1,28 @@
 use core::ffi::{c_int, c_uint};
-use rp_pico::hal::pio::{UninitStateMachine, ValidStateMachine};
+use rp_pico::hal::{
+    dma::{Channel, CH9},
+    gpio::{Function, Pin, PinId, PullType},
+    pio::{UninitStateMachine, PIO, SM2, SM3},
+};
 
-pub struct PioUsbConfiguration<A, B, C>
+pub struct PioUsbConfiguration<P, DP, DM, F, PIO_RX, PIO_TX>
 where
-    A: ValidStateMachine,
-    B: ValidStateMachine,
-    C: ValidStateMachine,
+    P: PullType,
+    DP: PinId,
+    DM: PinId,
+    F: Function,
+    PIO_RX: rp_pico::hal::pio::PIOExt,
+    PIO_TX: rp_pico::hal::pio::PIOExt,
 {
-    pub sm_tx: UninitStateMachine<A>,
-    pub sm_rx: UninitStateMachine<B>,
-    pub sm_eop: UninitStateMachine<C>,
-
-    pub pio_tx_num: c_uint,
-    pub tx_ch: c_uint,
-    pub pio_rx_num: c_uint,
-    pub debug_pin_rx: c_int,
-    pub debug_pin_eop: c_int,
     pub skip_alarm_pool: bool,
+    pub pin_dp: Pin<DP, F, P>,
+    pub pin_dm: Pin<DM, F, P>,
+    pub pio_rx: PIO<PIO_RX>,
+    pub pio_tx: PIO<PIO_TX>,
+    pub sm_eop: UninitStateMachine<(PIO_RX, SM3)>,
+    pub sm_tx: UninitStateMachine<(PIO_TX, SM3)>,
+    pub sm_rx: UninitStateMachine<(PIO_RX, SM2)>,
+    pub tx_ch: Channel<CH9>,
 }
 
 const PIO_USB_TX_DEFAULT: c_uint = 0;
@@ -29,24 +35,11 @@ const PIO_SM_USB_EOP_DEFAULT: c_uint = 1;
 
 const PIO_USB_DEBUG_PIN_NONE: c_int = -1;
 
-// pub const PIO_USB_DEFAULT_CONFIG: PioUsbConfiguration = PioUsbConfiguration {
-//     sm_tx: PIO_SM_USB_TX_DEFAULT,
-//     sm_rx: PIO_SM_USB_RX_DEFAULT,
-//     sm_eop: PIO_SM_USB_EOP_DEFAULT,
-//
-//     pio_tx_num: PIO_USB_TX_DEFAULT,
-//     tx_ch: PIO_USB_DMA_TX_DEFAULT,
-//     pio_rx_num: PIO_USB_RX_DEFAULT,
-//     debug_pin_rx: PIO_USB_DEBUG_PIN_NONE,
-//     debug_pin_eop: PIO_USB_DEBUG_PIN_NONE,
-//     skip_alarm_pool: false,
-// };
-
-const PIO_USB_EP_POOL_CNT: u8 = 32;
-const PIO_USB_DEV_EP_CNT: u8 = 16;
-const PIO_USB_DEVICE_CNT: u8 = 4;
-const PIO_USB_HUB_PORT_CNT: u8 = 8;
-pub const PIO_USB_ROOT_PORT_CNT: u8 = 2;
+pub const PIO_USB_EP_POOL_CNT: usize = 32;
+pub const PIO_USB_DEV_EP_CNT: usize = 16;
+pub const PIO_USB_DEVICE_CNT: usize = 4;
+pub const PIO_USB_HUB_PORT_CNT: usize = 8;
+pub const PIO_USB_ROOT_PORT_CNT: usize = 2;
 
 const PIO_USB_EP_SIZE: u8 = 64;
 
