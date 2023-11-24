@@ -51,40 +51,6 @@ pin_went_high:
     jmp pin pin_still_high
     jmp pin_went_low            ; To adjust interval of decoder trigger, jump to pin_went_low (not pin_low)
 
-.program usb_edge_detector_debug
-.side_set 1
-eop:
-    irq wait IRQ_RX_EOP     side db0
-start:
-    jmp pin start           side db1     ; Wait fall edge
-    irq IRQ_RX_START [1]    side db0
-
-.wrap_target
-pin_still_low:
-    irq DECODER_TRIGGER [1]	side db0	 ; Trigger NRZI decoder
-
-; Resync on rising edge
-pin_low:
-    jmp pin pin_went_high   side db1
-pin_went_low:
-    jmp pin pin_went_high   side db1
-    jmp pin pin_went_high   side db1
-    jmp pin pin_went_high   side db1
-    jmp pin pin_went_high   side db1
-    jmp pin pin_went_high   side db1
-.wrap
-
-pin_still_high:
-    mov x, isr [2] 			side db1
-    jmp x-- eop	     		side db1     ; Jump to eop if jmp_pin and in_pin are high because both inputs are inverted
-; Jump to here on rising edge
-pin_went_high:
-    mov isr, null			side db1
-    in pins, 1				side db0     ; Capture the pin to check eop.
-    irq DECODER_TRIGGER		side db0     ; Trigger NRZI decoder
-    jmp pin pin_still_high  side db0
-    jmp pin_went_low 		side db1     ; To adjust interval of decoder trigger, jump to pin_went_low (not pin_low)
-
 ; USB NRZI data decoder
 ; 15 instruction
 ;            FS(12M)  LS(1.5M)
@@ -100,6 +66,7 @@ set_y:
     set y, BIT_REPEAT_COUNT
 irq_wait:
     wait 1 irq DECODER_TRIGGER			; wait signal from edge detector
+    ; jmp PIN pin_high
 pin_low:
     jmp !y flip			; ignore stuff bit, without error check
     jmp !x K1
@@ -125,40 +92,6 @@ J1:
 flip:
     mov x, ~x
 .wrap
-.program usb_nrzi_decoder_debug
-.side_set 1 opt
-start:
-    ; set x, 0        side db0
-.wrap_target
-set_y:
-    set y, BIT_REPEAT_COUNT
-irq_wait:
-    wait 1 irq DECODER_TRIGGER    ; wait signal from edge detector
-pin_low:
-    jmp !y flip	side db0	; ignore stuff bit, without error check
-    jmp !x K1 side db0
-K2:
-    ; x==1
-    in null, 1
-    jmp flip
-K1:
-    ; x==0
-    in osr, 1
-    jmp y-- irq_wait
-    
-pin_high:
-    jmp !y flip	side db1	; ignore stuff bit, without error check
-    jmp !x J1 side db1
-J2:
-    ; x==1
-    in x, 1
-    jmp y-- irq_wait
-J1:
-    ; x==0
-    in null, 1
-flip:
-    mov x, ~x
-.wrap
 
 % c-sdk {
 #include "hardware/clocks.h"
@@ -169,7 +102,7 @@ static __always_inline void pio_sm_set_jmp_pin(PIO pio, uint sm, uint jmp_pin) {
       (jmp_pin << PIO_SM0_EXECCTRL_JMP_PIN_LSB);
 }
 
-static inline void usb_rx_fs_program_init(PIO pio, uint sm, uint offset, uint pin_dp, uint pin_dm, int pin_debug) {
+static inline void usb_rx_fs_program_init(PIO pio, uint sm, uint offset, uint pin_dp, uint pin_dm) {
   if (pin_dp < pin_dm) {
     pio_sm_set_consecutive_pindirs(pio, sm, pin_dp, 2, false);
   } else {
@@ -182,16 +115,7 @@ static inline void usb_rx_fs_program_init(PIO pio, uint sm, uint offset, uint pi
 
   pio_sm_config c;
 
-  if (pin_debug < 0) {
-    c = usb_nrzi_decoder_program_get_default_config(offset);
-  } else {
-    c = usb_nrzi_decoder_debug_program_get_default_config(offset);
-
-    pio_sm_set_pins_with_mask(pio, sm, 0, 1 << pin_debug);
-    pio_sm_set_pindirs_with_mask(pio, sm, 1 << pin_debug, 1 << pin_debug);
-    pio_gpio_init(pio, pin_debug);
-    sm_config_set_sideset_pins(&c, pin_debug);
-  }
+  c = usb_nrzi_decoder_program_get_default_config(offset);
 
   sm_config_set_in_pins(&c, pin_dp);  // for WAIT, IN
   sm_config_set_jmp_pin(&c, pin_dp);  // for JMP
@@ -206,18 +130,10 @@ static inline void usb_rx_fs_program_init(PIO pio, uint sm, uint offset, uint pi
 }
 
 static inline void eop_detect_fs_program_init(PIO pio, uint sm, uint offset,
-                                           uint pin_dp, uint pin_dm, bool is_fs, int pin_debug) {
+                                           uint pin_dp, uint pin_dm, bool is_fs) {
   pio_sm_config c;
 
-  if (pin_debug < 0) {
-    c = usb_edge_detector_program_get_default_config(offset);
-  } else {
-    c = usb_edge_detector_debug_program_get_default_config(offset);
-    pio_sm_set_pins_with_mask(pio, sm, 0, 1 << pin_debug);
-    pio_sm_set_pindirs_with_mask(pio, sm, 1 << pin_debug, 1 << pin_debug);
-    pio_gpio_init(pio, pin_debug);
-    sm_config_set_sideset_pins(&c, pin_debug);
-  }
+  c = usb_edge_detector_program_get_default_config(offset);
 
   sm_config_set_in_pins(&c, pin_dp);  // for WAIT, IN
   sm_config_set_jmp_pin(&c, pin_dm);  // for JMP
