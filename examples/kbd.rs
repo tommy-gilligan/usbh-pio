@@ -62,6 +62,7 @@ fn main() -> ! {
         sm_rx,
         tx_ch,
     };
+    usbh_pio::pio_usb::pio_usb_bus_init(config);
     let usb_host = UsbHost::new(UsbhDefmt::new(UsbhPio));
     let mut led_pin = pins.gpio25.into_push_pull_output();
     loop {

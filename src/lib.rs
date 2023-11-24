@@ -1,7 +1,7 @@
 #![no_std]
 use usbh::types::{DeviceAddress, SetupPacket, TransferType};
 
-mod pio_usb;
+pub mod pio_usb;
 mod pio_usb_configuration;
 mod pio_usb_host;
 mod pio_usb_ll;

@@ -14,6 +14,7 @@ use crate::{pio_usb_configuration, pio_usb_ll, usb_definitions};
 use pio_usb_configuration::PioUsbConfiguration;
 
 use usb_definitions::{Endpoint, EndpointDescriptor, RootPort};
+use pio_usb_ll::PioPort;
 
 //--------------------------------------------------------------------+
 // Bus functions
@@ -215,9 +216,52 @@ use usb_definitions::{Endpoint, EndpointDescriptor, RootPort};
 //   return -1;
 // }
 
-fn initialize_host_programs<P, F, DP, DM, PIO_RX, PIO_TX>(
-    pp: &mut pio_usb_ll::PioPort<PIO_RX, PIO_TX>,
-    _port: &RootPort<P, F, DP, DM>,
+pub fn configure_tx_channel<P>(
+    _ch: &mut Channel<CH9>,
+    _pio: &mut PIO<P>,
+    _sm: &mut UninitStateMachine<(P, SM3)>,
+) where
+    P: rp2040_hal::pio::PIOExt,
+{
+    //    let tx_transfer = rp_pico::hal::dma::single_buffer::Config::new(ch, tx_buf, tx).start();
+
+    //     dma_channel_config conf = dma_channel_get_default_config(ch);
+    //
+    //     channel_config_set_read_increment(&conf, true);
+    //     channel_config_set_write_increment(&conf, false);
+    //     channel_config_set_transfer_data_size(&conf, DMA_SIZE_8);
+    //     channel_config_set_dreq(&conf, pio_get_dreq(pio, sm, true));
+    //
+    //     dma_channel_set_config(ch, &conf, false);
+    //     dma_channel_set_write_addr(ch, &pio->txf[sm], false);
+    //    #[allow(clippy::unusual_byte_groupings)]
+    //    let message = [
+    //        0b10101010_00100010_11101010_00101110,
+    //        0b10100011_10111011_10000000_10111011,
+    //        0b10001110_11101110_00101110_10001011,
+    //        0b10101000_11101010_00000000_00000000,
+    //        0b10101010_00100010_11101010_00101110,
+    //        0b10100011_10111011_10000000_10111011,
+    //        0b10001110_11101110_00101110_10001011,
+    //        0b10101000_11101010_00000000_00000000,
+    //    ];
+    //
+    //    let tx_buf = singleton!(: [u32; 8] = message).unwrap();
+    //
+    //  let tx_transfer = rp_pico::hal::dma::single_buffer::Config::new(ch0, tx_buf, tx).start();
+    //
+    //  let (ch0, tx_buf, tx) = tx_transfer.wait();
+    //  for i in 0..rx_buf.len() {
+    //      if rx_buf[i] != tx_buf[i] {
+    //          // The data did not match, abort.
+    //          #[allow(clippy::empty_loop)]
+    //          loop {}
+    //      }
+    //  }
+}
+
+pub fn pio_usb_bus_init<P, F, DP, DM, PIO_RX, PIO_TX>(
+    c: PioUsbConfiguration<P, DP, DM, F, PIO_RX, PIO_TX>,
 ) where
     P: PullType,
     DP: PinId,
@@ -226,6 +270,47 @@ fn initialize_host_programs<P, F, DP, DM, PIO_RX, PIO_TX>(
     PIO_RX: rp2040_hal::pio::PIOExt,
     PIO_TX: rp2040_hal::pio::PIOExt,
 {
+    let mut root = RootPort {
+        initialized: vcell::VolatileCell::new(true),
+        addr0_exists: vcell::VolatileCell::new(false),
+        is_fullspeed: vcell::VolatileCell::new(false),
+        connected: vcell::VolatileCell::new(false),
+        suspended: vcell::VolatileCell::new(false),
+        mode: pio_usb_ll::PIO_USB_MODE_HOST,
+        pin_dp: c.pin_dp,
+        pin_dm: c.pin_dm,
+        dev_addr: 0,
+        ep_complete: vcell::VolatileCell::new(0),
+        ep_error: vcell::VolatileCell::new(0),
+        ep_stalled: vcell::VolatileCell::new(0),
+        ints: vcell::VolatileCell::new(0),
+    };
+
+    root.pin_dp.set_slew_rate(OutputSlewRate::Fast);
+    root.pin_dm.set_slew_rate(OutputSlewRate::Fast);
+    root.pin_dp
+        .set_drive_strength(OutputDriveStrength::TwelveMilliAmps);
+    root.pin_dm
+        .set_drive_strength(OutputDriveStrength::TwelveMilliAmps);
+
+    let mut pp = PioPort {
+        sm_tx: c.sm_tx,
+        sm_rx: c.sm_rx,
+        sm_eop: c.sm_eop,
+        pio_tx: c.pio_tx,
+        tx_ch: c.tx_ch,
+        pio_rx: c.pio_rx,
+        rx_reset_instr2: (pio::InstructionOperands::SET {
+            destination: pio::SetDestination::X,
+            data: 0,
+        })
+        .encode(),
+        rx_reset_instr: None,
+        offset_tx: None,
+        offset_rx: None,
+        offset_eop: None,
+    };
+
     let fs_tx_program = pio_proc::pio_file!(
         "src/usb_tx.pio",
         select_program("usb_tx_dpdm"),
@@ -278,135 +363,6 @@ fn initialize_host_programs<P, F, DP, DM, PIO_RX, PIO_TX>(
             .install(&usb_edge_detector_program.program)
             .unwrap(),
     );
-}
-//
-
-pub fn configure_tx_channel<P>(
-    _ch: &mut Channel<CH9>,
-    _pio: &mut PIO<P>,
-    _sm: &mut UninitStateMachine<(P, SM3)>,
-) where
-    P: rp2040_hal::pio::PIOExt,
-{
-    //    let tx_transfer = rp_pico::hal::dma::single_buffer::Config::new(ch, tx_buf, tx).start();
-
-    //     dma_channel_config conf = dma_channel_get_default_config(ch);
-    //
-    //     channel_config_set_read_increment(&conf, true);
-    //     channel_config_set_write_increment(&conf, false);
-    //     channel_config_set_transfer_data_size(&conf, DMA_SIZE_8);
-    //     channel_config_set_dreq(&conf, pio_get_dreq(pio, sm, true));
-    //
-    //     dma_channel_set_config(ch, &conf, false);
-    //     dma_channel_set_write_addr(ch, &pio->txf[sm], false);
-    //    #[allow(clippy::unusual_byte_groupings)]
-    //    let message = [
-    //        0b10101010_00100010_11101010_00101110,
-    //        0b10100011_10111011_10000000_10111011,
-    //        0b10001110_11101110_00101110_10001011,
-    //        0b10101000_11101010_00000000_00000000,
-    //        0b10101010_00100010_11101010_00101110,
-    //        0b10100011_10111011_10000000_10111011,
-    //        0b10001110_11101110_00101110_10001011,
-    //        0b10101000_11101010_00000000_00000000,
-    //    ];
-    //
-    //    let tx_buf = singleton!(: [u32; 8] = message).unwrap();
-    //
-    //  let tx_transfer = rp_pico::hal::dma::single_buffer::Config::new(ch0, tx_buf, tx).start();
-    //
-    //  let (ch0, tx_buf, tx) = tx_transfer.wait();
-    //  for i in 0..rx_buf.len() {
-    //      if rx_buf[i] != tx_buf[i] {
-    //          // The data did not match, abort.
-    //          #[allow(clippy::empty_loop)]
-    //          loop {}
-    //      }
-    //  }
-}
-
-fn port_pin_drive_setting<P, F, DPDM, DMDP>(port: &mut RootPort<P, F, DPDM, DMDP>)
-where
-    P: PullType,
-    DPDM: PinId,
-    DMDP: PinId,
-    F: Function,
-{
-    port.pin_dp.set_slew_rate(OutputSlewRate::Fast);
-    port.pin_dm.set_slew_rate(OutputSlewRate::Fast);
-    port.pin_dp
-        .set_drive_strength(OutputDriveStrength::TwelveMilliAmps);
-    port.pin_dm
-        .set_drive_strength(OutputDriveStrength::TwelveMilliAmps);
-}
-
-use pio_usb_ll::PioPort;
-// return root and port but for now just root
-pub fn apply_config<P, F, DP, DM, PIO_RX, PIO_TX>(
-    c: PioUsbConfiguration<P, DP, DM, F, PIO_RX, PIO_TX>,
-) -> (RootPort<P, F, DP, DM>, PioPort<PIO_RX, PIO_TX>)
-where
-    P: PullType,
-    DP: PinId,
-    DM: PinId,
-    F: Function,
-    PIO_RX: rp2040_hal::pio::PIOExt,
-    PIO_TX: rp2040_hal::pio::PIOExt,
-{
-    let root = RootPort {
-        initialized: vcell::VolatileCell::new(false),
-        addr0_exists: vcell::VolatileCell::new(false),
-        is_fullspeed: vcell::VolatileCell::new(false),
-        connected: vcell::VolatileCell::new(false),
-        suspended: vcell::VolatileCell::new(false),
-        mode: pio_usb_ll::PIO_USB_MODE_HOST,
-        pin_dp: c.pin_dp,
-        pin_dm: c.pin_dm,
-        dev_addr: 0,
-        ep_complete: vcell::VolatileCell::new(0),
-        ep_error: vcell::VolatileCell::new(0),
-        ep_stalled: vcell::VolatileCell::new(0),
-        ints: vcell::VolatileCell::new(0),
-    };
-
-    let pp = PioPort {
-        sm_tx: c.sm_tx,
-        sm_rx: c.sm_rx,
-        sm_eop: c.sm_eop,
-        pio_tx: c.pio_tx,
-        tx_ch: c.tx_ch,
-        pio_rx: c.pio_rx,
-        rx_reset_instr2: (pio::InstructionOperands::SET {
-            destination: pio::SetDestination::X,
-            data: 0,
-        })
-        .encode(),
-        rx_reset_instr: None,
-        offset_tx: None,
-        offset_rx: None,
-        offset_eop: None,
-    };
-
-    (root, pp)
-}
-
-pub fn pio_usb_bus_init<P, F, DP, DM, PIO_RX, PIO_TX>(
-    c: PioUsbConfiguration<P, DP, DM, F, PIO_RX, PIO_TX>,
-) where
-    P: PullType,
-    DP: PinId,
-    DM: PinId,
-    F: Function,
-    PIO_RX: rp2040_hal::pio::PIOExt,
-    PIO_TX: rp2040_hal::pio::PIOExt,
-{
-    let (mut root, mut pp) = apply_config(c);
-
-    initialize_host_programs(&mut pp, &root);
-    port_pin_drive_setting(&mut root);
-
-    root.initialized.set(true);
-    root.dev_addr = 0;
 }
 
 //--------------------------------------------------------------------+
@@ -622,7 +578,12 @@ where
             (pin_dp_id, rp2040_hal::pio::PinDir::Input),
         ]);
 
-        port_pin_drive_setting(root);
+        root.pin_dp.set_slew_rate(OutputSlewRate::Fast);
+        root.pin_dm.set_slew_rate(OutputSlewRate::Fast);
+        root.pin_dp
+            .set_drive_strength(OutputDriveStrength::TwelveMilliAmps);
+        root.pin_dm
+            .set_drive_strength(OutputDriveStrength::TwelveMilliAmps);
         root.initialized.set(true);
 
         0
