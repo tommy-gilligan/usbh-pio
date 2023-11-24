@@ -1,5 +1,5 @@
 use core::ffi::{c_int, c_uint};
-use rp_pico::hal::{
+use rp2040_hal::{
     dma::{Channel, CH9},
     gpio::{Function, Pin, PinId, PullType},
     pio::{UninitStateMachine, PIO, SM2, SM3},
@@ -11,8 +11,8 @@ where
     DP: PinId,
     DM: PinId,
     F: Function,
-    PIO_RX: rp_pico::hal::pio::PIOExt,
-    PIO_TX: rp_pico::hal::pio::PIOExt,
+    PIO_RX: rp2040_hal::pio::PIOExt,
+    PIO_TX: rp2040_hal::pio::PIOExt,
 {
     pub skip_alarm_pool: bool,
     pub pin_dp: Pin<DP, F, P>,

@@ -1,7 +1,7 @@
 use crate::pio_usb_configuration::PioUsbConfiguration;
 use crate::usb_definitions::RootPort;
 
-use rp_pico::hal::gpio::{Function, PinId, PullType};
+use rp2040_hal::gpio::{Function, PinId, PullType};
 
 use crate::pio_usb_ll;
 
@@ -14,8 +14,8 @@ pub fn pio_usb_host_init<P, F, DP, DM, PIO_RX, PIO_TX>(
     DP: PinId,
     DM: PinId,
     F: Function,
-    PIO_RX: rp_pico::hal::pio::PIOExt,
-    PIO_TX: rp_pico::hal::pio::PIOExt,
+    PIO_RX: rp2040_hal::pio::PIOExt,
+    PIO_TX: rp2040_hal::pio::PIOExt,
 {
     // pio_usb_bus_init(pp, c, root);
     root.mode = pio_usb_ll::PIO_USB_MODE_HOST;

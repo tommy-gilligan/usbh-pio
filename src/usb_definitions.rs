@@ -1,6 +1,6 @@
 use vcell::VolatileCell;
 
-use rp_pico::hal::gpio::{Function, Pin, PinId, PullType};
+use rp2040_hal::gpio::{Function, Pin, PinId, PullType};
 
 pub enum ControlTransferOperation {
     ControlNone,

@@ -3,19 +3,19 @@ struct PioClkDiv {
     div_frac: u8,
 }
 
-use rp_pico::hal::{
+use rp2040_hal::{
     dma::{Channel, CH9},
     pio::{InstalledProgram, UninitStateMachine, PIO, SM2, SM3},
 };
 
-// use rp_pico::hal::{
+// use rp2040_hal::{
 //     pio::{},
 // };
 
 pub struct PioPort<PIO_RX, PIO_TX>
 where
-    PIO_RX: rp_pico::hal::pio::PIOExt,
-    PIO_TX: rp_pico::hal::pio::PIOExt,
+    PIO_RX: rp2040_hal::pio::PIOExt,
+    PIO_TX: rp2040_hal::pio::PIOExt,
 {
     pub sm_eop: UninitStateMachine<(PIO_RX, SM3)>,
     pub sm_tx: UninitStateMachine<(PIO_TX, SM3)>,

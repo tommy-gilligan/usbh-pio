@@ -1,6 +1,6 @@
 use core::ffi::c_int;
 
-use rp_pico::hal::{
+use rp2040_hal::{
     dma::{Channel, CH9},
     gpio::{
         Function, InputOverride, OutputDriveStrength, OutputSlewRate, Pin, PinId, PullDown,
@@ -223,8 +223,8 @@ fn initialize_host_programs<P, F, DP, DM, PIO_RX, PIO_TX>(
     DP: PinId,
     DM: PinId,
     F: Function,
-    PIO_RX: rp_pico::hal::pio::PIOExt,
-    PIO_TX: rp_pico::hal::pio::PIOExt,
+    PIO_RX: rp2040_hal::pio::PIOExt,
+    PIO_TX: rp2040_hal::pio::PIOExt,
 {
     let fs_tx_program = pio_proc::pio_file!(
         "src/usb_tx.pio",
@@ -286,7 +286,7 @@ pub fn configure_tx_channel<P>(
     _pio: &mut PIO<P>,
     _sm: &mut UninitStateMachine<(P, SM3)>,
 ) where
-    P: rp_pico::hal::pio::PIOExt,
+    P: rp2040_hal::pio::PIOExt,
 {
     //    let tx_transfer = rp_pico::hal::dma::single_buffer::Config::new(ch, tx_buf, tx).start();
 
@@ -350,8 +350,8 @@ where
     DP: PinId,
     DM: PinId,
     F: Function,
-    PIO_RX: rp_pico::hal::pio::PIOExt,
-    PIO_TX: rp_pico::hal::pio::PIOExt,
+    PIO_RX: rp2040_hal::pio::PIOExt,
+    PIO_TX: rp2040_hal::pio::PIOExt,
 {
     let root = RootPort {
         initialized: vcell::VolatileCell::new(false),
@@ -397,8 +397,8 @@ pub fn pio_usb_bus_init<P, F, DP, DM, PIO_RX, PIO_TX>(
     DP: PinId,
     DM: PinId,
     F: Function,
-    PIO_RX: rp_pico::hal::pio::PIOExt,
-    PIO_TX: rp_pico::hal::pio::PIOExt,
+    PIO_RX: rp2040_hal::pio::PIOExt,
+    PIO_TX: rp2040_hal::pio::PIOExt,
 {
     let (mut root, mut pp) = apply_config(c);
 
@@ -618,8 +618,8 @@ where
         let pin_dp_id = root.pin_dp.id().num;
 
         sm.set_pindirs([
-            (pin_dm_id, rp_pico::hal::pio::PinDir::Input),
-            (pin_dp_id, rp_pico::hal::pio::PinDir::Input),
+            (pin_dm_id, rp2040_hal::pio::PinDir::Input),
+            (pin_dp_id, rp2040_hal::pio::PinDir::Input),
         ]);
 
         port_pin_drive_setting(root);
