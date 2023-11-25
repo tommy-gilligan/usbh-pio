@@ -5,17 +5,17 @@ use rp2040_hal::gpio::{Function, PinId, PullType};
 
 use crate::pio_usb_ll;
 
-pub fn pio_usb_host_init<P, F, DP, DM, PIO_RX, PIO_TX>(
-    _pp: &mut pio_usb_ll::PioPort<PIO_RX, PIO_TX>,
-    _c: &PioUsbConfiguration<P, DP, DM, F, PIO_RX, PIO_TX>,
+pub fn pio_usb_host_init<P, F, DP, DM, PioRx, PioTx>(
+    _pp: &mut pio_usb_ll::PioPort<PioRx, PioTx>,
+    _c: &PioUsbConfiguration<P, DP, DM, F, PioRx, PioTx>,
     root: &mut RootPort<P, F, DP, DM>,
 ) where
     P: PullType,
     DP: PinId,
     DM: PinId,
     F: Function,
-    PIO_RX: rp2040_hal::pio::PIOExt,
-    PIO_TX: rp2040_hal::pio::PIOExt,
+    PioRx: rp2040_hal::pio::PIOExt,
+    PioTx: rp2040_hal::pio::PIOExt,
 {
     // pio_usb_bus_init(pp, c, root);
     root.mode = pio_usb_ll::PIO_USB_MODE_HOST;

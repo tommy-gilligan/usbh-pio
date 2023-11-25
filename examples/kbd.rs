@@ -3,15 +3,12 @@
 
 use defmt as _;
 use defmt_rtt as _;
+use embedded_hal::{blocking::delay::DelayMs, digital::v2::OutputPin};
 use panic_probe as _;
-use embedded_hal::{
-    blocking::delay::DelayMs,
-    digital::v2::OutputPin
-};
 use rp2040_hal::{dma::DMAExt, pac, pio::PIOExt};
 use usbh::UsbHost;
 use usbh_defmt::UsbhDefmt;
-use usbh_pio::{UsbhPio, PioUsbConfiguration};
+use usbh_pio::{PioUsbConfiguration, UsbhPio};
 
 #[link_section = ".boot2"]
 #[used]

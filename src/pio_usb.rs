@@ -13,8 +13,8 @@ use crate::{pio_usb_configuration, pio_usb_ll, usb_definitions};
 
 use pio_usb_configuration::PioUsbConfiguration;
 
-use usb_definitions::{Endpoint, EndpointDescriptor, RootPort};
 use pio_usb_ll::PioPort;
+use usb_definitions::{Endpoint, EndpointDescriptor, RootPort};
 
 //--------------------------------------------------------------------+
 // Bus functions
@@ -260,15 +260,15 @@ pub fn configure_tx_channel<P>(
     //  }
 }
 
-pub fn pio_usb_bus_init<P, F, DP, DM, PIO_RX, PIO_TX>(
-    c: PioUsbConfiguration<P, DP, DM, F, PIO_RX, PIO_TX>,
+pub fn pio_usb_bus_init<P, F, DP, DM, PioRx, PioTx>(
+    c: PioUsbConfiguration<P, DP, DM, F, PioRx, PioTx>,
 ) where
     P: PullType,
     DP: PinId,
     DM: PinId,
     F: Function,
-    PIO_RX: rp2040_hal::pio::PIOExt,
-    PIO_TX: rp2040_hal::pio::PIOExt,
+    PioRx: rp2040_hal::pio::PIOExt,
+    PioTx: rp2040_hal::pio::PIOExt,
 {
     let mut root = RootPort {
         initialized: vcell::VolatileCell::new(true),
@@ -316,8 +316,8 @@ pub fn pio_usb_bus_init<P, F, DP, DM, PIO_RX, PIO_TX>(
         select_program("usb_tx_dpdm"),
         options(max_program_size = 32)
     );
-    let _USB_TX_EOP_DISABLER_LEN = fs_tx_program.public_defines.USB_TX_EOP_DISABLER_LEN;
-    let _USB_TX_EOP_OFFSET = fs_tx_program.public_defines.USB_TX_EOP_OFFSET;
+    let _usb_tx_eop_disabler_len = fs_tx_program.public_defines.USB_TX_EOP_DISABLER_LEN;
+    let _usb_tx_eop_offset = fs_tx_program.public_defines.USB_TX_EOP_OFFSET;
 
     let _fs_tx_pre_program = pio_proc::pio_file!(
         "src/usb_tx.pio",
@@ -494,7 +494,7 @@ fn pio_usb_ll_transfer_start<'a>(
 pub fn pio_usb_ll_transfer_continue<F, DPDM, DMDP, P>(
     ep: &mut Endpoint,
     xferred_bytes: usize,
-    root: &mut RootPort<P, F, DPDM, DMDP>,
+    root: &RootPort<P, F, DPDM, DMDP>,
 ) -> bool
 where
     DPDM: PinId,
@@ -526,7 +526,7 @@ where
 pub fn pio_usb_ll_transfer_complete<F, DPDM, DMDP, P>(
     ep: &Endpoint,
     flag: u32,
-    root: &mut RootPort<P, F, DPDM, DMDP>,
+    root: &RootPort<P, F, DPDM, DMDP>,
 ) where
     DPDM: PinId,
     DMDP: PinId,

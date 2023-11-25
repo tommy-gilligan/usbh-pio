@@ -5,23 +5,23 @@ use rp2040_hal::{
     pio::{UninitStateMachine, PIO, SM2, SM3},
 };
 
-pub struct PioUsbConfiguration<P, DP, DM, F, PIO_RX, PIO_TX>
+pub struct PioUsbConfiguration<P, DP, DM, F, PioRx, PioTx>
 where
     P: PullType,
     DP: PinId,
     DM: PinId,
     F: Function,
-    PIO_RX: rp2040_hal::pio::PIOExt,
-    PIO_TX: rp2040_hal::pio::PIOExt,
+    PioRx: rp2040_hal::pio::PIOExt,
+    PioTx: rp2040_hal::pio::PIOExt,
 {
     pub skip_alarm_pool: bool,
     pub pin_dp: Pin<DP, F, P>,
     pub pin_dm: Pin<DM, F, P>,
-    pub pio_rx: PIO<PIO_RX>,
-    pub pio_tx: PIO<PIO_TX>,
-    pub sm_eop: UninitStateMachine<(PIO_RX, SM3)>,
-    pub sm_tx: UninitStateMachine<(PIO_TX, SM3)>,
-    pub sm_rx: UninitStateMachine<(PIO_RX, SM2)>,
+    pub pio_rx: PIO<PioRx>,
+    pub pio_tx: PIO<PioTx>,
+    pub sm_eop: UninitStateMachine<(PioRx, SM3)>,
+    pub sm_tx: UninitStateMachine<(PioTx, SM3)>,
+    pub sm_rx: UninitStateMachine<(PioRx, SM2)>,
     pub tx_ch: Channel<CH9>,
 }
 

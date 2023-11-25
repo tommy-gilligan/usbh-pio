@@ -1,4 +1,6 @@
 #![no_std]
+#![allow(dead_code)]
+
 use usbh::types::{DeviceAddress, SetupPacket, TransferType};
 
 pub mod pio_usb;
