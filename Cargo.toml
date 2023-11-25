@@ -1,5 +1,5 @@
 [workspace]
-members = ["usb_crc"]
+members = ["usb_crc", "xtask"]
 
 [package]
 name = "usbh-pio"
@@ -25,3 +25,4 @@ defmt-rtt = "0.3"
 panic-probe = { version = "0.3", features = ["print-defmt"] }
 rp2040-boot2 = { version = "0.2.1" }
 usbh-defmt = { git = "https://github.com/tommy-gilligan/usbh-defmt" }
+trace = "*"
