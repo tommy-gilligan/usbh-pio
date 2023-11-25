@@ -1,8 +1,10 @@
-use std::process::Command;
-use std::env::args;
-use std::path::{Path, PathBuf};
-use std::fs::File;
-use std::fs;
+use std::{
+    process::Command,
+    env::args,
+    path::{Path, PathBuf},
+    fs::{File, self},
+};
+use defmt_json_schema::{v1::JsonFrame, SchemaVersion};
 
 const CASSETTES: &'static str = "cassettes";
 
@@ -10,24 +12,30 @@ fn cassette(example: &str) -> PathBuf {
     Path::new(CASSETTES).join(example).with_extension("json")
 }
 
-fn run(example: &str) -> Vec<u8> {
-    Command::new("cargo")
-        .args(
-            [
-                "run",
-                // "--target",
-                // "thumbv6m-none-eabi",
-                "--example",
-                example
-            ]
-        )
-        .output()
-        .expect("failed to execute process")
-        .stdout
+fn run(example: &str) -> Vec<JsonFrame> {
+    let string = String::from_utf8(
+        Command::new("cargo")
+            .args(
+                [
+                    "run",
+                    // "--target",
+                    // "thumbv6m-none-eabi",
+                    "--example",
+                    example
+                ]
+            )
+            .output()
+            .expect("failed to execute process")
+            .stdout
+    ).unwrap();
+    let lines = string.lines().collect::<Vec<_>>();
+    let schema_version: SchemaVersion = serde_json::from_str(lines[0]).unwrap();
+    lines[1..].iter().map(|line| serde_json::from_str(line).unwrap()).collect()
 }
 
 fn record(example: &str) {
-    fs::write(cassette(example), run(example)).unwrap();
+    let lines: Vec<String> = run(example).into_iter().map(|frame| format!("{:?}", frame)).collect();
+    fs::write(cassette(example), lines.join("")).unwrap();
 }
 
 fn validate(output: &str) {
