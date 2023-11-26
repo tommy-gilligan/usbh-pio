@@ -36,6 +36,7 @@ static bool sof_timer(repeating_timer_t *_rt);
 //--------------------------------------------------------------------+
 
 static void start_timer(alarm_pool_t *alarm_pool) {
+	RECORD_COVERAGE;
   if (timer_active) {
     return;
   }
@@ -49,11 +50,13 @@ static void start_timer(alarm_pool_t *alarm_pool) {
 }
 
 static __unused void stop_timer(void) {
+	RECORD_COVERAGE;
   cancel_repeating_timer(&sof_rt);
   timer_active = false;
 }
 
 usb_device_t *pio_usb_host_init(const pio_usb_configuration_t *c) {
+	RECORD_COVERAGE;
   pio_port_t *pp = PIO_USB_PIO_PORT(0);
   root_port_t *root = PIO_USB_ROOT_PORT(0);
 
@@ -87,6 +90,7 @@ usb_device_t *pio_usb_host_init(const pio_usb_configuration_t *c) {
 }
 
 void pio_usb_host_stop(void) {
+	RECORD_COVERAGE;
   cancel_timer_flag = true;
   while (cancel_timer_flag) {
     continue;
@@ -94,6 +98,7 @@ void pio_usb_host_stop(void) {
 }
 
 void pio_usb_host_restart(void) {
+	RECORD_COVERAGE;
   start_timer_flag = true;
   while (start_timer_flag) {
     continue;

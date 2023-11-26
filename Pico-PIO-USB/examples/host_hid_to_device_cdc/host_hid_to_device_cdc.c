@@ -40,6 +40,9 @@
 #include "pio_usb.h"
 #include "tusb.h"
 
+int COVERAGE_BUFFER[8192] = { 0 };
+int *COVERAGE_BUFFER_ITEM = COVERAGE_BUFFER;
+
 //--------------------------------------------------------------------+
 // MACRO CONSTANT TYPEDEF PROTYPES
 //--------------------------------------------------------------------+
@@ -177,7 +180,13 @@ static void process_kbd_report(uint8_t dev_addr, hid_keyboard_report_t const *re
 
         if (ch) {
           if (ch == '\n') tud_cdc_write("\r", 1);
-          tud_cdc_write(&ch, 1);
+	  char number[10] = {0};
+
+	  int *i = COVERAGE_BUFFER;
+	  do {
+		  sprintf(number, "%d\n", *i);
+       		  tud_cdc_write(number, strlen(number));
+	  } while (i++ != COVERAGE_BUFFER_ITEM);
           flush = true;
         }
       }

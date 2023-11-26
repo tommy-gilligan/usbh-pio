@@ -3,6 +3,7 @@
 
 #include "pio_usb_configuration.h"
 #include "usb_definitions.h"
+#include "coverage.h"
 
 #ifdef __cplusplus
  extern "C" {
