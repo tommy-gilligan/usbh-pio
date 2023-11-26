@@ -378,12 +378,6 @@ void __no_inline_not_in_flash_func(pio_usb_ll_transfer_complete)(
     if (!ep->is_tx) {
       ep->new_data_flag = true;
     }
-  } else if (flag == PIO_USB_INTS_ENDPOINT_ERROR_BITS) {
-    rport->ep_error |= ep_mask;
-  } else if (flag == PIO_USB_INTS_ENDPOINT_STALLED_BITS) {
-    rport->ep_stalled |= ep_mask;
-  } else {
-    // something wrong
   }
 
   ep->has_transfer = false;
@@ -392,31 +386,6 @@ void __no_inline_not_in_flash_func(pio_usb_ll_transfer_complete)(
 int pio_usb_host_add_port(uint8_t pin_dp, PIO_USB_PINOUT pinout) {
   for (int idx = 0; idx < PIO_USB_ROOT_PORT_CNT; idx++) {
     root_port_t *root = PIO_USB_ROOT_PORT(idx);
-    if (!root->initialized) {
-      root->pin_dp = pin_dp;
-
-      if (pinout == PIO_USB_PINOUT_DPDM) {
-        root->pin_dm = pin_dp + 1;
-      } else {
-        root->pin_dm = pin_dp - 1;
-      }
-
-      gpio_pull_down(pin_dp);
-      gpio_pull_down(root->pin_dm);
-      pio_gpio_init(pio_port[0].pio_usb_tx, pin_dp);
-      pio_gpio_init(pio_port[0].pio_usb_tx, root->pin_dm);
-      gpio_set_inover(pin_dp, GPIO_OVERRIDE_INVERT);
-      gpio_set_inover(root->pin_dm, GPIO_OVERRIDE_INVERT);
-      pio_sm_set_pindirs_with_mask(pio_port[0].pio_usb_tx, pio_port[0].sm_tx, 0,
-                                   (1 << pin_dp) | (1 << root->pin_dm));
-      gpio_set_slew_rate(root->pin_dp, GPIO_SLEW_RATE_FAST);
-      gpio_set_slew_rate(root->pin_dm, GPIO_SLEW_RATE_FAST);
-      gpio_set_drive_strength(root->pin_dp, GPIO_DRIVE_STRENGTH_12MA);
-      gpio_set_drive_strength(root->pin_dm, GPIO_DRIVE_STRENGTH_12MA);
-      root->initialized = true;
-
-      return 0;
-    }
   }
 
   return -1;
