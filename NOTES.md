@@ -6,7 +6,10 @@
 - [usbh](https://github.com/nilclass/usbh)
 
 ## USB
+
 - [USB in a Nutshell](https://www.beyondlogic.org/usbnutshell/usb1.shtml)
+- [rusb](https://crates.io/crates/rusb)
+- [libusb1-sys](https://crates.io/crates/libusb1-sys)
 
 ## PIO
 
