@@ -320,10 +320,6 @@ static bool __no_inline_not_in_flash_func(sof_timer)(repeating_timer_t *_rt) {
 // Host Controller functions
 //--------------------------------------------------------------------+
 
-uint32_t pio_usb_host_get_frame_number(void) {
-  return sof_count;
-}
-
 void pio_usb_host_port_reset_start(uint8_t root_idx) {
   root_port_t *root = PIO_USB_ROOT_PORT(root_idx);
   pio_port_t *pp = PIO_USB_PIO_PORT(0);
@@ -432,38 +428,6 @@ bool pio_usb_host_endpoint_transfer(uint8_t root_idx, uint8_t device_address,
   }
 
   return pio_usb_ll_transfer_start(ep, buffer, buflen);
-}
-
-bool pio_usb_host_endpoint_abort_transfer(uint8_t root_idx, uint8_t device_address,
-                                          uint8_t ep_address) {
-  endpoint_t *ep = _find_ep(root_idx, device_address, ep_address);
-  if (!ep) {
-    printf("no endpoint 0x%02X\r\n", ep_address);
-    return false;
-  }
-
-  if (!ep->has_transfer) {
-    return false; // no transfer to abort
-  }
-
-  // mark transfer as aborted
-  ep->transfer_aborted = true;
-
-  // Race potential: SOF timer can be called before transfer_aborted is actually set
-  // and started the transfer. Wait 1 usb frame for transaction to complete.
-  // On the next SOF timer, transfer_aborted will be checked and skipped
-  while (ep->has_transfer && ep->transfer_started) {
-    busy_wait_ms(1);
-  }
-
-  // check if transfer is still active (could be completed)
-  bool const still_active = ep->has_transfer;
-  if (still_active) {
-    ep->has_transfer = false;
-  }
-  ep->transfer_aborted = false;
-
-  return still_active; // still active means transfer is successfully aborted
 }
 
 //--------------------------------------------------------------------+
@@ -773,37 +737,6 @@ static int initialize_hub(usb_device_t *device) {
   return res;
 }
 
-static int get_string_descriptor(usb_device_t *device, uint8_t idx,
-                                 uint8_t *rx_buffer, uint8_t *str_buffer) {
-  int res = -1;
-  usb_setup_packet_t req = GET_DEVICE_DESCRIPTOR_REQ_DEFAULT;
-  req.value_msb = DESC_TYPE_STRING;
-  req.value_lsb = idx;
-  req.length_lsb = 1;
-  req.length_msb = 0;
-  res = control_in_protocol(device, (uint8_t *)&req, sizeof(req), rx_buffer, 1);
-  if (res != 0) {
-    return res;
-  }
-
-  uint8_t len = rx_buffer[0];
-  req.length_lsb = len;
-  req.length_msb = 0;
-  res =
-      control_in_protocol(device, (uint8_t *)&req, sizeof(req), rx_buffer, len);
-  if (res != 0) {
-    return res;
-  }
-
-  uint16_t *wchar_buffer = (uint16_t *)(uintptr_t) rx_buffer;
-  for (int i = 0; i < (len - 2) / 2; i++) {
-    str_buffer[i] = wchar_buffer[i + 1];
-  }
-  str_buffer[(len - 2) / 2] = '\0';
-
-  return res;
-}
-
 static int enumerate_device(usb_device_t *device, uint8_t address) {
   int res = 0;
   uint8_t rx_buffer[512];
@@ -822,10 +755,6 @@ static int enumerate_device(usb_device_t *device, uint8_t address) {
   device->vid = desc->vid[0] | (desc->vid[1] << 8);
   device->pid = desc->pid[0] | (desc->pid[1] << 8);
   device->device_class = desc->device_class;
-  uint8_t idx_manufacture = desc->manufacture;
-  uint8_t idx_product = desc->product;
-  uint8_t idx_serial = desc->serial;
-
   printf("Enumerating %04x:%04x, class:%d, address:%d\n", device->vid,
          device->pid, device->device_class, address);
 
@@ -846,37 +775,6 @@ static int enumerate_device(usb_device_t *device, uint8_t address) {
   pio_usb_host_endpoint_open(device->root - pio_usb_root_port, address,
                              (uint8_t const *)&ep0_desc,
                              !device->is_root && !device->is_fullspeed);
-
-  uint8_t str[64];
-  if (idx_manufacture != 0) {
-    res = get_string_descriptor(device, idx_manufacture, rx_buffer, str);
-    if (res == 0) {
-      printf("Manufacture:%s\n", str);
-    } else {
-      printf("Failed to get string descriptor (Manufacture)\n");
-    }
-    stdio_flush();
-  }
-
-  if (idx_product != 0) {
-    res = get_string_descriptor(device, idx_product, rx_buffer, str);
-    if (res == 0) {
-      printf("Product:%s\n", str);
-    } else {
-      printf("Failed to get string descriptor (Product)\n");
-    }
-    stdio_flush();
-  }
-
-  if (idx_serial != 0) {
-    res = get_string_descriptor(device, idx_serial, rx_buffer, str);
-    if (res == 0) {
-      printf("Serial:%s\n", str);
-    } else {
-      printf("Failed to get string descriptor (Serial)\n");
-    }
-    stdio_flush();
-  }
 
   usb_setup_packet_t get_configuration_descriptor_request =
       GET_CONFIGURATION_DESCRIPTOR_REQ_DEFAULT;
