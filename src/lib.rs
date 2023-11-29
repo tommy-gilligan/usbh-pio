@@ -4,10 +4,10 @@
 use usbh::types::{DeviceAddress, SetupPacket, TransferType};
 
 pub mod pio_usb;
-mod pio_usb_configuration;
-mod pio_usb_host;
-mod pio_usb_ll;
-mod usb_definitions;
+pub mod pio_usb_configuration;
+pub mod pio_usb_host;
+pub mod pio_usb_ll;
+pub mod usb_definitions;
 
 pub use pio_usb_configuration::PioUsbConfiguration;
 
