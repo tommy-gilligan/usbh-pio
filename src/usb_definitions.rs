@@ -48,9 +48,9 @@ pub struct Endpoint<'a> {
     pub need_pre: bool,
     pub is_tx: bool,
 
-    pub ep_num: VolatileCell<u8>,
+    pub ep_num: u8,
     pub new_data_flag: VolatileCell<bool>,
-    pub size: VolatileCell<usize>,
+    pub size: usize,
 
     pub attr: VolatileCell<u8>,
     pub interval: VolatileCell<u8>,

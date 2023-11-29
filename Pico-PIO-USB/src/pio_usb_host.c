@@ -429,7 +429,7 @@ static int __no_inline_not_in_flash_func(usb_out_transaction)(pio_port_t *pp,
   pio_usb_bus_usb_transfer(pp, ep->buffer, xact_len + 4);
   pio_usb_bus_start_receive(pp);
 
-  pio_usb_bus_wait_handshake(pp);
+  // pio_usb_bus_wait_handshake(pp);
 
   uint8_t const receive_token = pp->usb_rx_buffer[1];
 
@@ -464,7 +464,7 @@ static int __no_inline_not_in_flash_func(usb_setup_transaction)(
 
   // Handshake
   pio_usb_bus_start_receive(pp);
-  pio_usb_bus_wait_handshake(pp);
+  // pio_usb_bus_wait_handshake(pp);
 
   ep->actual_len = 8;
 

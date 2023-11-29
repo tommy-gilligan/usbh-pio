@@ -39,6 +39,7 @@ where
     PioRx: rp2040_hal::pio::PIOExt,
     PioTx: rp2040_hal::pio::PIOExt,
 {
+    pub need_pre: bool,
     pub sm_eop: UninitStateMachine<(PioRx, SM3)>,
     pub sm_tx: UninitStateMachine<(PioTx, SM3)>,
     pub sm_rx: UninitStateMachine<(PioRx, SM2)>,
@@ -50,21 +51,12 @@ where
     pub offset_tx: Option<InstalledProgram<PioTx>>,
     pub offset_rx: Option<InstalledProgram<PioRx>>,
     pub offset_eop: Option<InstalledProgram<PioRx>>,
+    pub rx_buffer: [u8; 128]
 }
 
 pub const PIO_USB_MODE_INVALID: u8 = 0;
 pub const PIO_USB_MODE_DEVICE: u8 = 1;
 pub const PIO_USB_MODE_HOST: u8 = 2;
-
-pub fn pio_usb_ll_get_transaction_len(ep: &crate::usb_definitions::Endpoint) -> usize {
-    let remaining: usize = ep.total_len - ep.actual_len;
-
-    if remaining < ep.size.get() {
-        remaining
-    } else {
-        ep.size.get()
-    }
-}
 
 pub const USB_TX_DPDM_IRQ_COMP: u32 = 0;
 pub const USB_TX_DPDM_IRQ_EOP: u32 = 1;
@@ -80,3 +72,16 @@ pub const IRQ_TX_ALL_MASK: u8 = IRQ_TX_EOP_MASK | IRQ_TX_COMP_MASK;
 pub const IRQ_RX_COMP_MASK: u8 = 1 << IRQ_RX_EOP;
 pub const IRQ_RX_ALL_MASK: u8 =
     (1 << IRQ_RX_EOP) | (1 << IRQ_RX_BS_ERR) | (1 << IRQ_RX_START) | (1 << DECODER_TRIGGER);
+
+use crate::usb_definitions::Endpoint;
+
+#[inline]
+pub fn pio_usb_ll_get_transaction_len(ep: &Endpoint) -> usize {
+    let remaining: usize = ep.total_len - ep.actual_len;
+
+    if remaining < ep.size {
+        remaining
+    } else {
+        ep.size
+    }
+}

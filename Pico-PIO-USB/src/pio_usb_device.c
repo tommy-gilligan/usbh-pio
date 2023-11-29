@@ -128,15 +128,13 @@ static void __no_inline_not_in_flash_func(usb_device_packet_handler)(void) {
       pio_usb_bus_start_receive(pp);
 
       // wait for ack
-      pio_usb_bus_wait_handshake(pp);
+      // pio_usb_bus_wait_handshake(pp);
 
       pio_usb_bus_start_receive(pp);
       irq_clear(pp->device_rx_irq_num);
 
       //
       // time critical end
-      //
-
       if (ep->ep_num == 0x80 && new_devaddr > 0) {
         rport->dev_addr = new_devaddr;
         new_devaddr = 0;
